@@ -14,3 +14,9 @@ a. 词法分析：Thompson算法、⼦集法、等价状态法等
 b. 语法分析：LR分析法等
 
 c. 中间代码⽣成：属性⽂法、翻译⼦程序等
+
+## Framework from gpto1
+1. generate_lexer.py 用于根据词法规则生成词法分析器lexer.py
+2. generate_parser.py 用于根据语法规则生成语法分析器parser.py
+3. compiler.py根据生成的lexer.py和parser.py生成编译器执行test.code
+4. 运行项目时执行run.sh

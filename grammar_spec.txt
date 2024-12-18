@@ -1,0 +1,6 @@
+Program -> StmtList
+StmtList -> StmtList Stmt | Stmt
+Stmt -> ID ASSIGN Expr SEMI
+Expr -> Expr PLUS Term | Expr MINUS Term | Term
+Term -> Term MUL Factor | Term DIV Factor | Factor
+Factor -> ID | NUM | LPAREN Expr RPAREN
