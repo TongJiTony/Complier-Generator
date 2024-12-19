@@ -1,32 +1,6 @@
 # generate_parser.py
 import sys
 
-# 简化SLR(1)分析表构造函数
-# 由于完整的SLR构表很复杂，这里手动实现适合本例文法的SLR表。
-# 实际中，你需要：
-# 1. 求FIRST、FOLLOW集
-# 2. 构造LR(0)项集族
-# 3. 构造ACTION和GOTO表
-# 我们这里直接硬编码适合此文法的SLR表。
-
-def construct_slr_tables(rules):
-    # 假设输入的文法是上面给定的文法
-    # Program -> StmtList
-    # StmtList -> StmtList Stmt | Stmt
-    # Stmt -> ID ASSIGN Expr SEMI
-    # Expr -> Expr PLUS Term | Expr MINUS Term | Term
-    # Term -> Term MUL Factor | Term DIV Factor | Factor
-    # Factor -> ID | NUM | LPAREN Expr RPAREN
-
-    # 返回一个固定的表，仅用于本例示范。
-    productions = rules
-    # 我们手工拟定(实际上要自动构造):
-    # 这里不做完整解析表生成，实现一个递归下降版的parser.py也可接受。
-
-    # 返回数据结构给parser.py生成使用
-    return productions, {}, {}, rules[0][0]
-
-
 def main():
     if len(sys.argv) < 2:
         print("Usage: python generate_parser.py grammar_spec.txt")
@@ -45,16 +19,19 @@ def main():
             right = right.strip()
             if start_symbol is None:
                 start_symbol = left
+            # 这里并未使用产生式列表构表，仅记录
             right_symbols = right.split()
             rules.append((left, right_symbols))
 
-    productions, action_table, goto_table, start_symbol = construct_slr_tables(rules)
+    # 我们不生成自动ACTION/GOTO表，而是递归下降
+    # 这里不使用action_table, goto_table
+    productions = rules
+    action_table = {}
+    goto_table = {}
 
     with open('parser.py','w',encoding='utf-8') as out:
         out.write(f'''# Auto-generated parser by generate_parser.py
 productions = {productions!r}
-action_table = {action_table!r}
-goto_table = {goto_table!r}
 start_symbol = {start_symbol!r}
 
 from lexer import tokenize
@@ -71,8 +48,6 @@ class Node:
         return f"Node({{self.type}}, value={{self.value}}, children={{self.children}})"
 
 def parse(tokens):
-    # 为了简化，这里使用递归下降进行解析，而不是SLR表驱动
-    # 与之前的示例相同
     parser = RecursiveParser(tokens)
     tree = parser.parse_Program()
     if not parser.at_end():
@@ -102,35 +77,79 @@ class RecursiveParser:
         else:
             raise ParserError(f"Expected {{token_type}}, got {{self.lookahead()}}")
 
+    # Program -> StmtList
     def parse_Program(self):
         node = Node("Program")
         node.children.append(self.parse_StmtList())
         return node
 
+    # StmtList -> StmtList Stmt | Stmt
     def parse_StmtList(self):
         node = Node("StmtList")
-        # StmtList -> StmtList Stmt | Stmt
-        # 尝试匹配至少一个Stmt，然后在可能的情况下继续匹配
+        # 至少一个Stmt
         first = self.parse_Stmt()
         node.children.append(first)
-        while not self.at_end() and self.lookahead()[0] == 'ID':
-            s = self.parse_Stmt()
-            node.children.append(s)
+        # 尝试继续匹配Stmt
+        while not self.at_end():
+            la = self.lookahead()[0]
+            # Stmt可以以ID(AssignStmt)、IF、WHILE开头
+            # AssignStmt以ID开头
+            # IfStmt 以IF开头
+            # WhileStmt以WHILE开头
+            if la in ('ID','IF','WHILE'):
+                s = self.parse_Stmt()
+                node.children.append(s)
+            else:
+                break
         return node
 
+    # Stmt -> AssignStmt | IfStmt | WhileStmt
     def parse_Stmt(self):
-        # Stmt -> ID ASSIGN Expr SEMI
-        if self.lookahead()[0] == 'ID':
-            id_tok = self.consume('ID')
-            self.consume('ASSIGN')
-            expr = self.parse_Expr()
-            self.consume('SEMI')
-            return Node("AssignStmt",[expr],id_tok[1])
+        la = self.lookahead()[0]
+        if la == 'ID':
+            return self.parse_AssignStmt()
+        elif la == 'IF':
+            return self.parse_IfStmt()
+        elif la == 'WHILE':
+            return self.parse_WhileStmt()
         else:
             raise ParserError("Invalid Stmt")
 
+    # AssignStmt -> ID ASSIGN Expr SEMI
+    def parse_AssignStmt(self):
+        id_tok = self.consume('ID')
+        self.consume('ASSIGN')
+        expr = self.parse_Expr()
+        self.consume('SEMI')
+        # AssignStmt节点：value是ID的名称，children[0]是Expr节点
+        return Node("AssignStmt",[expr],id_tok[1])
+
+    # IfStmt -> IF LPAREN BooleanExpr RPAREN Stmt | IF LPAREN BooleanExpr RPAREN Stmt ELSE Stmt
+    def parse_IfStmt(self):
+        self.consume('IF')
+        self.consume('LPAREN')
+        cond = self.parse_BooleanExpr()
+        self.consume('RPAREN')
+        then_stmt = self.parse_Stmt()
+        # 可选ELSE
+        if not self.at_end() and self.lookahead()[0]=='ELSE':
+            self.consume('ELSE')
+            else_stmt = self.parse_Stmt()
+            return Node("IfStmt",[cond,then_stmt,else_stmt])
+        else:
+            return Node("IfStmt",[cond,then_stmt])
+
+    # WhileStmt -> WHILE LPAREN BooleanExpr RPAREN Stmt
+    def parse_WhileStmt(self):
+        self.consume('WHILE')
+        self.consume('LPAREN')
+        cond = self.parse_BooleanExpr()
+        self.consume('RPAREN')
+        body = self.parse_Stmt()
+        return Node("WhileStmt",[cond,body])
+
+    # Expr -> Expr PLUS Term | Expr MINUS Term | Term
     def parse_Expr(self):
-        # Expr -> Expr PLUS Term | Expr MINUS Term | Term
         node = self.parse_Term()
         while not self.at_end() and self.lookahead()[0] in ('PLUS','MINUS'):
             op = self.consume(self.lookahead()[0])
@@ -138,8 +157,8 @@ class RecursiveParser:
             node = Node("BinOp",[node,right],op[1])
         return node
 
+    # Term -> Term MUL Factor | Term DIV Factor | Factor
     def parse_Term(self):
-        # Term -> Term MUL Factor | Term DIV Factor | Factor
         node = self.parse_Factor()
         while not self.at_end() and self.lookahead()[0] in ('MUL','DIV'):
             op = self.consume(self.lookahead()[0])
@@ -147,8 +166,8 @@ class RecursiveParser:
             node = Node("BinOp",[node,right],op[1])
         return node
 
+    # Factor -> ID | NUM | LPAREN Expr RPAREN
     def parse_Factor(self):
-        # Factor -> ID | NUM | LPAREN Expr RPAREN
         la = self.lookahead()[0]
         if la == 'ID':
             t = self.consume('ID')
@@ -163,6 +182,42 @@ class RecursiveParser:
             return node
         else:
             raise ParserError("Invalid Factor")
+
+    # BooleanExpr -> BooleanExpr OR BooleanTerm | BooleanTerm
+    def parse_BooleanExpr(self):
+        node = self.parse_BooleanTerm()
+        while not self.at_end() and self.lookahead()[0]=='OR':
+            op = self.consume('OR')
+            right=self.parse_BooleanTerm()
+            node=Node("BoolOp",[node,right],value='||')
+        return node
+
+    # BooleanTerm -> BooleanTerm AND BooleanNot | BooleanNot
+    def parse_BooleanTerm(self):
+        node = self.parse_BooleanNot()
+        while not self.at_end() and self.lookahead()[0]=='AND':
+            op = self.consume('AND')
+            right=self.parse_BooleanNot()
+            node=Node("BoolOp",[node,right],value='&&')
+        return node
+
+    # BooleanNot -> NOT BooleanNot | RelExpr
+    def parse_BooleanNot(self):
+        if not self.at_end() and self.lookahead()[0]=='NOT':
+            self.consume('NOT')
+            child = self.parse_BooleanNot()
+            return Node("NotOp",[child])
+        else:
+            return self.parse_RelExpr()
+
+    # RelExpr -> Expr RELOP Expr
+    def parse_RelExpr(self):
+        # RelExpr与Expr区分，因为RelExpr需要两个Expr加一个RELOP
+        left=self.parse_Expr()
+        self.consume('RELOP')  # 因为RELOP是标记，如(==, !=, <, <=,...)
+        op=self.tokens[self.pos-1][1] # 刚消耗的RELOP的value
+        right=self.parse_Expr()
+        return Node("RelExpr",[left,right],value=op)
 ''')
 
     print("parser.py generated.")

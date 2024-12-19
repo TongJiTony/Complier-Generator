@@ -1,6 +1,13 @@
 Program -> StmtList
 StmtList -> StmtList Stmt | Stmt
-Stmt -> ID ASSIGN Expr SEMI
+Stmt -> AssignStmt | IfStmt | WhileStmt
+AssignStmt -> ID ASSIGN Expr SEMI
+IfStmt -> IF LPAREN BooleanExpr RPAREN Stmt | IF LPAREN BooleanExpr RPAREN Stmt ELSE Stmt
+WhileStmt -> WHILE LPAREN BooleanExpr RPAREN Stmt
 Expr -> Expr PLUS Term | Expr MINUS Term | Term
 Term -> Term MUL Factor | Term DIV Factor | Factor
 Factor -> ID | NUM | LPAREN Expr RPAREN
+BooleanExpr -> BooleanExpr OR BooleanTerm | BooleanTerm
+BooleanTerm -> BooleanTerm AND BooleanNot | BooleanNot
+BooleanNot -> NOT BooleanNot | RelExpr
+RelExpr -> Expr RELOP Expr
