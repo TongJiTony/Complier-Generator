@@ -1,3 +1,6 @@
+IF      if
+ELSE    else
+WHILE   while
 ID      [a-zA-Z_][a-zA-Z0-9_]*
 NUM     [0-9]+
 ASSIGN  =
@@ -8,4 +11,8 @@ DIV     /
 LPAREN  \(
 RPAREN  \)
 SEMI    ;
+RELOP   (==|!=|<=|>=|<|>)
+AND     &&
+OR      \|\|
+NOT     !
 WS      [ \t\n]+

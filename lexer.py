@@ -2,6 +2,9 @@
 import re
 
 token_specs = [
+    ("IF", r"if"),
+    ("ELSE", r"else"),
+    ("WHILE", r"while"),
     ("ID", r"[a-zA-Z_][a-zA-Z0-9_]*"),
     ("NUM", r"[0-9]+"),
     ("ASSIGN", r"="),
@@ -12,6 +15,10 @@ token_specs = [
     ("LPAREN", r"\("),
     ("RPAREN", r"\)"),
     ("SEMI", r";"),
+    ("RELOP", r"(==|!=|<=|>=|<|>)"),
+    ("AND", r"&&"),
+    ("OR", r"\|\|"),
+    ("NOT", r"!"),
     ("WS", r"[ \t\n]+"),
 ]
 token_regex = "|".join(f"(?P<{t}>{p})" for t,p in token_specs)
