@@ -8,12 +8,14 @@ class ParserError(Exception):
     pass
 
 class Node:
-    def __init__(self, type, children=None, value=None):
+    def __init__(self, type, children=None, attributes=None):
         self.type = type
         self.children = children or []
-        self.value = value
+        self.attributes = attributes or {}
+
     def __repr__(self):
-        return f"Node({self.type}, value={self.value}, children={self.children})"
+        attrs_str = ', '.join(f"{k}={v}" for k, v in self.attributes.items())
+        return f"Node({self.type}, attributes=({attrs_str}), children={self.children})"
 
 def parse(tokens):
     parser = RecursiveParser(tokens)
@@ -26,7 +28,8 @@ class RecursiveParser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
-    
+        self.symbol_table = {}  # 符号表，用于跟踪变量声明、作用域和类型信息
+
     def at_end(self):
         return self.tokens[self.pos][0] == 'EOF'
     
@@ -45,33 +48,25 @@ class RecursiveParser:
         else:
             raise ParserError(f"Expected {token_type}, got {self.lookahead()}")
 
-    # Program -> StmtList
     def parse_Program(self):
         node = Node("Program")
         node.children.append(self.parse_StmtList())
         return node
 
-    # StmtList -> StmtList Stmt | Stmt
     def parse_StmtList(self):
         node = Node("StmtList")
-        # 至少一个Stmt
         first = self.parse_Stmt()
         node.children.append(first)
-        # 尝试继续匹配Stmt
+
         while not self.at_end():
             la = self.lookahead()[0]
-            # Stmt可以以ID(AssignStmt)、IF、WHILE开头
-            # AssignStmt以ID开头
-            # IfStmt 以IF开头
-            # WhileStmt以WHILE开头
-            if la in ('ID','IF','WHILE'):
+            if la in ('ID', 'IF', 'WHILE'):
                 s = self.parse_Stmt()
                 node.children.append(s)
             else:
                 break
         return node
 
-    # Stmt -> AssignStmt | IfStmt | WhileStmt
     def parse_Stmt(self):
         la = self.lookahead()[0]
         if la == 'ID':
@@ -83,66 +78,95 @@ class RecursiveParser:
         else:
             raise ParserError("Invalid Stmt")
 
-    # AssignStmt -> ID ASSIGN Expr SEMI
     def parse_AssignStmt(self):
         id_tok = self.consume('ID')
+        id_name = id_tok[1]
+
+        # 检查是否已声明
+        if id_name not in self.symbol_table:
+            raise NameError(f"Undefined identifier '{id_name}'")
+
         self.consume('ASSIGN')
         expr = self.parse_Expr()
-        self.consume('SEMI')
-        # AssignStmt节点：value是ID的名称，children[0]是Expr节点
-        return Node("AssignStmt",[expr],id_tok[1])
 
-    # IfStmt -> IF LPAREN BooleanExpr RPAREN Stmt | IF LPAREN BooleanExpr RPAREN Stmt ELSE Stmt
+        # 检查类型匹配
+        if self.symbol_table[id_name]['type'] != expr['type']:
+            raise TypeError(f"Type mismatch in assignment to '{id_name}'")
+
+        # 更新符号表中的值
+        self.symbol_table[id_name]['value'] = expr['value']
+
+        # 创建AssignStmt节点，并设置其属性（name: 变量名, type: 类型, value: 值）
+        return Node("AssignStmt", [expr], {'name': id_name, 'type': expr['type'], 'value': expr['value']})
+
     def parse_IfStmt(self):
         self.consume('IF')
         self.consume('LPAREN')
         cond = self.parse_BooleanExpr()
+
+        # 检查条件是否为布尔类型
+        if cond['type'] != 'bool':
+            raise TypeError("Condition must be of boolean type")
+
         self.consume('RPAREN')
         then_stmt = self.parse_Stmt()
-        # 可选ELSE
-        if not self.at_end() and self.lookahead()[0]=='ELSE':
+        else_stmt = None
+
+        if not self.at_end() and self.lookahead()[0] == 'ELSE':
             self.consume('ELSE')
             else_stmt = self.parse_Stmt()
-            return Node("IfStmt",[cond,then_stmt,else_stmt])
-        else:
-            return Node("IfStmt",[cond,then_stmt])
 
-    # WhileStmt -> WHILE LPAREN BooleanExpr RPAREN Stmt
+        # 创建IfStmt节点，并设置其属性（条件表达式、then语句、else语句）
+        return Node("IfStmt", [cond, then_stmt, else_stmt or Node('Empty')])
+
     def parse_WhileStmt(self):
         self.consume('WHILE')
         self.consume('LPAREN')
         cond = self.parse_BooleanExpr()
+
+        # 检查条件是否为布尔类型
+        if cond['type'] != 'bool':
+            raise TypeError("Condition must be of boolean type")
+
         self.consume('RPAREN')
         body = self.parse_Stmt()
-        return Node("WhileStmt",[cond,body])
 
-    # Expr -> Expr PLUS Term | Expr MINUS Term | Term
+        # 创建WhileStmt节点，并设置其属性（条件表达式、循环体）
+        return Node("WhileStmt", [cond, body])
+
     def parse_Expr(self):
         node = self.parse_Term()
-        while not self.at_end() and self.lookahead()[0] in ('PLUS','MINUS'):
-            op = self.consume(self.lookahead()[0])
+        result_type = 'int'  # 默认假设所有表达式的结果是整数类型
+        while not self.at_end() and self.lookahead()[0] in ('PLUS', 'MINUS'):
+            op = self.consume(self.lookahead())[1]
             right = self.parse_Term()
-            node = Node("BinOp",[node,right],op[1])
-        return node
+            node = Node("BinOp", [node, right], {'op': op, 'type': result_type})
+        # 返回表达式节点及其类型信息
+        return {'node': node, 'type': result_type}
 
-    # Term -> Term MUL Factor | Term DIV Factor | Factor
     def parse_Term(self):
         node = self.parse_Factor()
-        while not self.at_end() and self.lookahead()[0] in ('MUL','DIV'):
-            op = self.consume(self.lookahead()[0])
+        result_type = 'int'  # 默认假设所有项的结果是整数类型
+        while not self.at_end() and self.lookahead()[0] in ('MUL', 'DIV'):
+            op = self.consume(self.lookahead())[1]
             right = self.parse_Factor()
-            node = Node("BinOp",[node,right],op[1])
-        return node
+            node = Node("BinOp", [node, right], {'op': op, 'type': result_type})
+        # 返回项节点及其类型信息
+        return {'node': node, 'type': result_type}
 
-    # Factor -> ID | NUM | LPAREN Expr RPAREN
     def parse_Factor(self):
         la = self.lookahead()[0]
         if la == 'ID':
             t = self.consume('ID')
-            return Node("ID", value=t[1])
+            id_name = t[1]
+            if id_name not in self.symbol_table:
+                raise NameError(f"Undefined identifier '{id_name}'")
+            # 创建ID节点，并设置其属性（value: 变量名, type: 类型）
+            return Node("ID", value=t[1], attributes={'type': self.symbol_table[id_name]['type']})
         elif la == 'NUM':
             t = self.consume('NUM')
-            return Node("NUM", value=t[1])
+            # 创建NUM节点，并设置其属性（value: 数字值, type: 整数类型）
+            return Node("NUM", value=t[1], attributes={'type': 'int'})
         elif la == 'LPAREN':
             self.consume('LPAREN')
             node = self.parse_Expr()
@@ -151,38 +175,51 @@ class RecursiveParser:
         else:
             raise ParserError("Invalid Factor")
 
-    # BooleanExpr -> BooleanExpr OR BooleanTerm | BooleanTerm
     def parse_BooleanExpr(self):
         node = self.parse_BooleanTerm()
-        while not self.at_end() and self.lookahead()[0]=='OR':
-            op = self.consume('OR')
-            right=self.parse_BooleanTerm()
-            node=Node("BoolOp",[node,right],value='||')
-        return node
+        result_type = 'bool'  # 布尔表达式结果总是布尔类型
+        while not self.at_end() and self.lookahead()[0] == 'OR':
+            op = self.consume('OR')[1]
+            right = self.parse_BooleanTerm()
+            node = Node("BoolOp", [node, right], {'op': '||', 'type': result_type})
+        # 返回布尔表达式节点及其类型信息
+        return {'node': node, 'type': result_type}
 
-    # BooleanTerm -> BooleanTerm AND BooleanNot | BooleanNot
     def parse_BooleanTerm(self):
         node = self.parse_BooleanNot()
-        while not self.at_end() and self.lookahead()[0]=='AND':
-            op = self.consume('AND')
-            right=self.parse_BooleanNot()
-            node=Node("BoolOp",[node,right],value='&&')
-        return node
+        result_type = 'bool'  # 布尔项结果总是布尔类型
+        while not self.at_end() and self.lookahead()[0] == 'AND':
+            op = self.consume('AND')[1]
+            right = self.parse_BooleanNot()
+            node = Node("BoolOp", [node, right], {'op': '&&', 'type': result_type})
+        # 返回布尔项节点及其类型信息
+        return {'node': node, 'type': result_type}
 
-    # BooleanNot -> NOT BooleanNot | RelExpr
     def parse_BooleanNot(self):
-        if not self.at_end() and self.lookahead()[0]=='NOT':
+        if not self.at_end() and self.lookahead()[0] == 'NOT':
             self.consume('NOT')
             child = self.parse_BooleanNot()
-            return Node("NotOp",[child])
+            # 创建NotOp节点，并设置其属性（type: 布尔类型）
+            return Node("NotOp", [child], {'type': 'bool'})
         else:
             return self.parse_RelExpr()
 
-    # RelExpr -> Expr RELOP Expr
     def parse_RelExpr(self):
-        # RelExpr与Expr区分，因为RelExpr需要两个Expr加一个RELOP
-        left=self.parse_Expr()
-        self.consume('RELOP')  # 因为RELOP是标记，如(==, !=, <, <=,...)
-        op=self.tokens[self.pos-1][1] # 刚消耗的RELOP的value
-        right=self.parse_Expr()
-        return Node("RelExpr",[left,right],value=op)
+        left = self.parse_Expr()
+        self.consume('RELOP')
+        op = self.tokens[self.pos-1][1]
+        right = self.parse_Expr()
+
+        # 确保比较的是相同类型的值
+        if left['type'] != right['type']:
+            raise TypeError("Comparison between different types")
+
+        # 创建RelExpr节点，并设置其属性（op: 关系运算符, type: 布尔类型）
+        return Node("RelExpr", [left['node'], right['node']], {'op': op, 'type': 'bool'})
+
+
+
+
+
+
+#
