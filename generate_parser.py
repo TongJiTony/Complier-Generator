@@ -23,7 +23,7 @@ def main():
             right_symbols = [symbol.strip() for symbol in right.split()]
             rules.append((left, right_symbols))
     #我们不生成自动ACTION/GOTO表，而是递归下降
-    #不使用action_table,goto_table
+    #我们不使用action_table,goto_table
     productions = rules
     action_table = {}
     goto_table = {}
