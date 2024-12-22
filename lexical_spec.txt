@@ -1,18 +1,22 @@
-IF      if
-ELSE    else
-WHILE   while
-ID      [a-zA-Z_][a-zA-Z0-9_]*
-NUM     [0-9]+
-ASSIGN  =
-PLUS    \+
-MINUS   -
-MUL     \*
-DIV     /
-LPAREN  \(
-RPAREN  \)
-SEMI    ;
-RELOP   (==|!=|<=|>=|<|>)
-AND     &&
-OR      \|\|
-NOT     !
-WS      [ \t\n]+
+# 词法规则定义
+IF       \bif\b          
+ELSE     \belse\b        
+WHILE    \bwhile\b       
+VARDECL  \b(var|let)\b   # 匹配变量声明关键字 var 或 let
+TYPE     \b(int|bool|string|float)\b  # 匹配基本类型
+ID       [a-zA-Z_][a-zA-Z0-9_]*     
+NUM      \d+(\.\d*)?     
+ASSIGN   =               
+PLUS     \+              
+MINUS    -               
+MUL      \*              
+DIV      /               
+LPAREN   $              
+RPAREN   $              
+SEMI     ;               
+COLON    :               
+RELOP    (==|!=|<=|>=|<|>)  
+AND      &&              
+OR       \|\|          
+NOT      !               
+WS       [ \t\n]+        # 忽略空白字符
