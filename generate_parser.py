@@ -122,7 +122,7 @@ class RecursiveParser:
         self.consume('SEMI')
 
         if id_name in self.symbol_table:
-            raise NameError(f"Redeclaration of identifier '{id_name}'")
+            raise NameError(f"Redeclaration of identifier {{id_name}}")
         self.symbol_table[id_name] = {{'type': type_name, 'value': None}}
         return Node("VarDeclStmt", value=id_name, attributes={{'type': type_name}})
 
@@ -131,11 +131,11 @@ class RecursiveParser:
         id_name = id_tok[1]
 
         if id_name not in self.symbol_table:
-            raise NameError(f"Undefined identifier '{id_name}'")
+            raise NameError(f"Undefined identifier {{id_name}}")
 
         actual_type = self.symbol_table[id_name]['type']
         if expected_type and actual_type != expected_type:
-            raise TypeError(f"Type mismatch in assignment to '{id_name}'. Expected {{expected_type}}, got {{actual_type}}")
+            raise TypeError(f"Type mismatch in assignment to {{id_name}}. Expected {{expected_type}}, got {{actual_type}}")
 
         self.consume('ASSIGN')
         expr = self.parse_Expr(expected_type=actual_type)
@@ -195,7 +195,7 @@ class RecursiveParser:
             t = self.consume('ID')
             id_name = t[1]
             if id_name not in self.symbol_table:
-                raise NameError(f"Undefined identifier '{id_name}'")
+                raise NameError(f"Undefined identifier")
             actual_type = self.symbol_table[id_name]['type']
             if expected_type and actual_type != expected_type:
                 raise TypeError(f"Type mismatch in factor. Expected {{expected_type}}, got {{actual_type}}")
