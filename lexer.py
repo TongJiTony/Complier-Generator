@@ -2,27 +2,27 @@
 import re
 
 token_specs = [
-    ('IF',       r'\bif\b'),          
-    ('ELSE',     r'\belse\b'),        
-    ('WHILE',    r'\bwhile\b'),       
-    ('VARDECL',  r'\b(var|let)\b'),   # 匹配变量声明关键字 var 或 let
-    ('TYPE',     r'\b(int|bool|string|float)\b'), # 匹配基本类型
-    ('ID',       r'[a-zA-Z_][a-zA-Z0-9_]*'),
-    ('NUM',      r'\d+(\.\d*)?'),     
-    ('ASSIGN',   r'='),               
-    ('PLUS',     r'\+'),              
-    ('MINUS',    r'-'),               
-    ('MUL',      r'\*'),              
-    ('DIV',      r'/'),               
-    ('LPAREN',   r'$'),              
-    ('RPAREN',   r'$'),              
-    ('SEMI',     r';'),               
-    ('COLON',    r':'),               
-    ('RELOP',    r'(==|!=|<=|>=|<|>)'), 
-    ('AND',      r'&&'),              
-    ('OR',       r'\|\|'),            
-    ('NOT',      r'!'),               
-    ('WS',       r'[ \t\n]+'),        # 忽略空白字符
+    ("IF", r"\bif\b"),
+    ("ELSE", r"\belse\b"),
+    ("WHILE", r"\bwhile\b"),
+    ("VARDECL", r"\b(var|let)\b   # 匹配变量声明关键字 var 或 let"),
+    ("TYPE", r"\b(int|bool|string|float)\b  # 匹配基本类型"),
+    ("ID", r"[a-zA-Z_][a-zA-Z0-9_]*"),
+    ("NUM", r"\d+(\.\d*)?"),
+    ("ASSIGN", r"="),
+    ("PLUS", r"\+"),
+    ("MINUS", r"-"),
+    ("MUL", r"\*"),
+    ("DIV", r"/"),
+    ("LPAREN", r"$"),
+    ("RPAREN", r"$"),
+    ("SEMI", r";"),
+    ("COLON", r":"),
+    ("RELOP", r"(==|!=|<=|>=|<|>)"),
+    ("AND", r"&&"),
+    ("OR", r"\|\|"),
+    ("NOT", r"!"),
+    ("WS", r"[ \t\n]+        # 忽略空白字符"),
 ]
 token_regex = "|".join(f"(?P<{t}>{p})" for t,p in token_specs)
 master_re = re.compile(token_regex)
