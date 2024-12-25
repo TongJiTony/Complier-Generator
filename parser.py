@@ -26,7 +26,7 @@ def parse(tokens):
 
 class RecursiveParser:
     def __init__(self, tokens):
-        self.tokens = tokens
+        self.tokens = tokens + [('EOF', 'EOF')]  # 确保有一个结束标记
         self.pos = 0
         self.symbol_table = {}  # 符号表
 
@@ -44,7 +44,7 @@ class RecursiveParser:
 
     def consume(self, token_type):
         if self.match(token_type):
-            return self.tokens[self.pos-1]
+            return self.tokens[self.pos - 1]
         else:
             raise ParserError(f"Expected {token_type}, got {self.lookahead()}")
 
@@ -55,16 +55,9 @@ class RecursiveParser:
 
     def parse_StmtList(self):
         node = Node("StmtList")
-        first = self.parse_Stmt()
-        node.children.append(first)
-
-        while not self.at_end():
-            la = self.lookahead()[0]
-            if la in ('ID', 'IF', 'WHILE', 'VARDECL'):  # 添加了VARDECL
-                s = self.parse_Stmt()
-                node.children.append(s)
-            else:
-                break
+        while not self.at_end() and self.lookahead()[0] in ('ID', 'IF', 'WHILE'):
+            s = self.parse_Stmt()
+            node.children.append(s)
         return node
 
     def parse_Stmt(self):
@@ -73,51 +66,42 @@ class RecursiveParser:
             return self.parse_AssignStmt()
         elif la == 'IF':
             return self.parse_IfStmt()
-        elif la == 'VARDECL':  # 变量声明语句
-            return self.parse_VarDeclStmt()
         elif la == 'WHILE':
             return self.parse_WhileStmt()
         else:
             raise ParserError("Invalid Stmt")
 
-    def parse_VarDeclStmt(self):
-        """解析变量声明语句，并更新符号表"""
-        self.consume('VARDECL')
-        id_tok = self.consume('ID')
-        id_name = id_tok[1]
-        self.consume('COLON')
-        type_tok = self.consume('TYPE')  
-        type_name = type_tok[1]
-        self.consume('SEMI')
-
-        if id_name in self.symbol_table:
-            raise NameError(f"Redeclaration of identifier {id_name}")
-        self.symbol_table[id_name] = {'type': type_name, 'value': None}
-        return Node("VarDeclStmt", value=id_name, attributes={'type': type_name})
-
-    def parse_AssignStmt(self, expected_type=None):
+    def parse_AssignStmt(self):
         id_tok = self.consume('ID')
         id_name = id_tok[1]
 
+        # 隐式声明变量，如果它之前未被定义过
         if id_name not in self.symbol_table:
-            raise NameError(f"Undefined identifier {id_name}")
+            self.symbol_table[id_name] = {'type': None, 'value': None}
 
         actual_type = self.symbol_table[id_name]['type']
-        if expected_type and actual_type != expected_type:
-            raise TypeError(f"Type mismatch in assignment to {id_name}. Expected {expected_type}, got {actual_type}")
-
+        
         self.consume('ASSIGN')
-        expr = self.parse_Expr(expected_type=actual_type)
+        expr = self.parse_Expr()
 
-        self.symbol_table[id_name]['value'] = expr['value']
-        return Node("AssignStmt", [expr['node']], attributes={'name': id_name, 'type': actual_type, 'value': expr['value']})
+        # 确定表达式的类型并更新符号表
+        if expr.attributes.get('type') is not None:
+            if actual_type is None:
+                actual_type = expr.attributes.get('type')
+                self.symbol_table[id_name]['type'] = actual_type
+            elif actual_type != expr.attributes.get('type'):
+                raise TypeError(f"Type mismatch in assignment to {id_name}. Expected {actual_type}, got {expr.attributes.get('type')}")
+
+        self.symbol_table[id_name]['value'] = expr.attributes.get('value')
+        self.consume('SEMI')
+        return Node("AssignStmt", [expr], attributes={'name': id_name, 'type': actual_type, 'value': expr.attributes.get('value')})
 
     def parse_IfStmt(self):
         self.consume('IF')
         self.consume('LPAREN')
         cond = self.parse_BooleanExpr()
 
-        if cond['type'] != 'bool':
+        if cond.attributes.get('type') != 'bool':
             raise TypeError("Condition must be of boolean type")
 
         self.consume('RPAREN')
@@ -127,36 +111,36 @@ class RecursiveParser:
         if not self.at_end() and self.lookahead()[0] == 'ELSE':
             self.consume('ELSE')
             else_stmt = self.parse_Stmt()
-        return Node("IfStmt", [cond['node'], then_stmt, else_stmt or Node('Empty')], attributes={'type': 'bool'})
+        return Node("IfStmt", [cond, then_stmt, else_stmt or Node('Empty')], attributes={'type': 'bool'})
 
     def parse_WhileStmt(self):
         self.consume('WHILE')
         self.consume('LPAREN')
         cond = self.parse_BooleanExpr()
-        if cond['type'] != 'bool':
+        if cond.attributes.get('type') != 'bool':
             raise TypeError("Condition must be of boolean type")
 
         self.consume('RPAREN')
         body = self.parse_Stmt()
-        return Node("WhileStmt", [cond['node'], body], attributes={'type': 'bool'})
+        return Node("WhileStmt", [cond, body], attributes={'type': 'bool'})
 
     def parse_Expr(self, expected_type=None):
-        node = self.parse_Term(expected_type=expected_type)
-        result_type = node['type']
+        left = self.parse_Term(expected_type=expected_type)
         while not self.at_end() and self.lookahead()[0] in ('PLUS', 'MINUS'):
-            op = self.consume(self.lookahead())[1]
-            right = self.parse_Term(expected_type=result_type)
-            node = Node("BinOp", [node['node'], right['node']], attributes={'op': op, 'type': result_type})
-        return {'node': node['node'], 'type': result_type, 'value': node.get('value')}
+            op_token = self.consume(self.lookahead()[0])  # 直接使用 consume 消耗当前符号
+            op = op_token[1]
+            right = self.parse_Term(expected_type=left.attributes.get('type'))
+            left = Node("BinOp", [left, right], attributes={'op': op, 'type': left.attributes.get('type')})
+        return left
 
     def parse_Term(self, expected_type=None):
-        node = self.parse_Factor(expected_type=expected_type)
-        result_type = node['type']
+        left = self.parse_Factor(expected_type=expected_type)
         while not self.at_end() and self.lookahead()[0] in ('MUL', 'DIV'):
-            op = self.consume(self.lookahead())[1]
-            right = self.parse_Factor(expected_type=result_type)
-            node = Node("BinOp", [node['node'], right['node']], attributes={'op': op, 'type': result_type})
-        return {'node': node['node'], 'type': result_type, 'value': node.get('value')}
+            op_token = self.consume(self.lookahead()[0])  # 直接使用 consume 消耗当前符号
+            op = op_token[1]
+            right = self.parse_Factor(expected_type=left.attributes.get('type'))
+            left = Node("BinOp", [left, right], attributes={'op': op, 'type': left.attributes.get('type')})
+        return left
 
     def parse_Factor(self, expected_type=None):
         la = self.lookahead()[0]
@@ -164,17 +148,17 @@ class RecursiveParser:
             t = self.consume('ID')
             id_name = t[1]
             if id_name not in self.symbol_table:
-                raise NameError(f"Undefined identifier")
+                raise NameError(f"Undefined identifier {id_name}")
             actual_type = self.symbol_table[id_name]['type']
             if expected_type and actual_type != expected_type:
                 raise TypeError(f"Type mismatch in factor. Expected {expected_type}, got {actual_type}")
-            return {'node': Node("ID", value=t[1], attributes={'type': actual_type}), 'type': actual_type, 'value': self.symbol_table[id_name]['value']}
+            return Node("ID", value=t[1], attributes={'type': actual_type, 'value': self.symbol_table[id_name]['value']})
         elif la == 'NUM':
             t = self.consume('NUM')
             num_value = int(t[1])
             if expected_type and expected_type != 'int':
                 raise TypeError(f"Type mismatch in numeric factor. Expected {expected_type}, got int")
-            return {'node': Node("NUM", value=num_value, attributes={'type': 'int'}), 'type': 'int', 'value': num_value}
+            return Node("NUM", value=num_value, attributes={'type': 'int', 'value': num_value})
         elif la == 'LPAREN':
             self.consume('LPAREN')
             node = self.parse_Expr(expected_type=expected_type)
@@ -185,27 +169,25 @@ class RecursiveParser:
 
     def parse_BooleanExpr(self):
         node = self.parse_BooleanTerm()
-        result_type = 'bool'
         while not self.at_end() and self.lookahead()[0] == 'OR':
             op = self.consume('OR')[1]
             right = self.parse_BooleanTerm()
-            node = Node("BoolOp", [node['node'], right['node']], attributes={'op': '||', 'type': result_type})
-        return {'node': node['node'], 'type': result_type}
+            node = Node("BoolOp", [node, right], attributes={'op': '||', 'type': 'bool'})
+        return node
 
     def parse_BooleanTerm(self):
         node = self.parse_BooleanNot()
-        result_type = 'bool'
         while not self.at_end() and self.lookahead()[0] == 'AND':
             op = self.consume('AND')[1]
             right = self.parse_BooleanNot()
-            node = Node("BoolOp", [node['node'], right['node']], attributes={'op': '&&', 'type': result_type})
-        return {'node': node['node'], 'type': result_type}
+            node = Node("BoolOp", [node, right], attributes={'op': '&&', 'type': 'bool'})
+        return node
 
     def parse_BooleanNot(self):
         if not self.at_end() and self.lookahead()[0] == 'NOT':
             self.consume('NOT')
             child = self.parse_BooleanNot()
-            return {'node': Node("NotOp", [child['node']], attributes={'type': 'bool'}), 'type': 'bool'}
+            return Node("NotOp", [child], attributes={'type': 'bool'})
         else:
             return self.parse_RelExpr()
 
@@ -215,7 +197,7 @@ class RecursiveParser:
         op = self.tokens[self.pos-1][1]
         right = self.parse_Expr()
 
-        if left['type'] != right['type']:
+        if left.attributes.get('type') != right.attributes.get('type'):
             raise TypeError("Comparison between different types")
 
-        return {'node': Node("RelExpr", [left['node'], right['node']], attributes={'op': op, 'type': 'bool'}), 'type': 'bool'}
+        return Node("RelExpr", [left, right], attributes={'op': op, 'type': 'bool'})

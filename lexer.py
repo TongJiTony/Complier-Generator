@@ -2,30 +2,30 @@
 import re
 
 token_specs = [
-    ("IF", r"\bif\b"),
-    ("ELSE", r"\belse\b"),
-    ("WHILE", r"\bwhile\b"),
-    ("VARDECL", r"\b(var|let)\b   # 匹配变量声明关键字 var 或 let"),
-    ("TYPE", r"\b(int|bool|string|float)\b  # 匹配基本类型"),
+    ("IF", r"if"),
+    ("ELSE", r"else"),
+    ("WHILE", r"while"),
     ("ID", r"[a-zA-Z_][a-zA-Z0-9_]*"),
-    ("NUM", r"\d+(\.\d*)?"),
+    ("NUM", r"[0-9]+"),
     ("ASSIGN", r"="),
     ("PLUS", r"\+"),
     ("MINUS", r"-"),
     ("MUL", r"\*"),
     ("DIV", r"/"),
-    ("LPAREN", r"$"),
-    ("RPAREN", r"$"),
+    ("LPAREN", r"\("),
+    ("RPAREN", r"\)"),
     ("SEMI", r";"),
-    ("COLON", r":"),
     ("RELOP", r"(==|!=|<=|>=|<|>)"),
     ("AND", r"&&"),
     ("OR", r"\|\|"),
     ("NOT", r"!"),
-    ("WS", r"[ \t\n]+        # 忽略空白字符"),
+    ("WS", r"[ \t\n]+"),
+    
 ]
+
 token_regex = "|".join(f"(?P<{t}>{p})" for t,p in token_specs)
-master_re = re.compile(token_regex)
+#print("Final token regex:", token_regex) 
+master_re = re.compile(token_regex, re.VERBOSE | re.UNICODE)
 
 def tokenize(text):
     pos = 0
@@ -42,6 +42,7 @@ def tokenize(text):
                 tokens.append((kind, value))
             pos = m.end()
         else:
-            raise SyntaxError(f"Illegal character at position {pos}: {text[pos]}")
-    tokens.append(("EOF","EOF"))
+            context = text[max(pos-5, 0):pos+5]
+            raise SyntaxError(f"Illegal character '{text[pos]}' at position {pos}. Context: ...{context}...")
+    tokens.append(("EOF", "EOF"))
     return tokens

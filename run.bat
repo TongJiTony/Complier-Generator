@@ -25,7 +25,7 @@ if %ERRORLEVEL% neq 0 (
 
 :: 运行编译器的Python脚本
 echo Running compiler.py...
-%PYTHON_PATH% python compiler.py test.code
+%PYTHON_PATH% python compiler.py test_bool.code
 if %ERRORLEVEL% neq 0 (
     echo Error occurred while running compiler.py
     exit /b %ERRORLEVEL%
