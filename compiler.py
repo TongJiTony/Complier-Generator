@@ -70,8 +70,6 @@ def generate_3ac(node, code):
         code.append(f"goto {lstart}")
         code.append(f"{lend}:")
 
-    # Add more cases as necessary for other types of nodes.
-
 def generate_3ac_expr(node, code):
     if node.type == "ID":
         return node.value
