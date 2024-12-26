@@ -31,7 +31,12 @@ def generate_3ac(node, code):
         lhs = node.attributes.get('name')  # 修正为从attributes获取
         rhs_place = generate_3ac_expr(node.children[0], code)
         code.append(f"{lhs} = {rhs_place}")
-
+    elif nodetype == "Block":
+        # Block通常包含一个children[0]是StmtList
+        # 或者有多个children，每个child都是 StmtList, ...
+        # 简单做法：对 children 逐个调用 generate_3ac
+        for child in node.children:
+            generate_3ac(child, code)
     elif nodetype == "IfStmt":
         cond_node = node.children[0]
         then_node = node.children[1]

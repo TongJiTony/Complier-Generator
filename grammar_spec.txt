@@ -1,9 +1,10 @@
 Program -> StmtList
 StmtList -> StmtList Stmt | Stmt
-Stmt -> AssignStmt | IfStmt | WhileStmt
+Stmt -> AssignStmt | IfStmt | WhileStmt ｜ Block
 AssignStmt -> ID ASSIGN Expr SEMI
 IfStmt -> IF LPAREN BooleanExpr RPAREN Stmt | IF LPAREN BooleanExpr RPAREN Stmt ELSE Stmt
 WhileStmt -> WHILE LPAREN BooleanExpr RPAREN Stmt
+Block -> LBRACE StmtList RBRACE
 Expr -> Expr PLUS Term | Expr MINUS Term | Term
 Term -> Term MUL Factor | Term DIV Factor | Factor
 Factor -> ID | NUM | LPAREN Expr RPAREN
