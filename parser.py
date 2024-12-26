@@ -1,5 +1,5 @@
 # Auto-generated parser by generate_parser.py
-productions = [('Program', ['StmtList']), ('StmtList', ['StmtList', 'Stmt', '|', 'Stmt']), ('Stmt', ['AssignStmt', '|', 'IfStmt', '|', 'WhileStmt']), ('AssignStmt', ['ID', 'ASSIGN', 'Expr', 'SEMI']), ('IfStmt', ['IF', 'LPAREN', 'BooleanExpr', 'RPAREN', 'Stmt', '|', 'IF', 'LPAREN', 'BooleanExpr', 'RPAREN', 'Stmt', 'ELSE', 'Stmt']), ('WhileStmt', ['WHILE', 'LPAREN', 'BooleanExpr', 'RPAREN', 'Stmt']), ('Expr', ['Expr', 'PLUS', 'Term', '|', 'Expr', 'MINUS', 'Term', '|', 'Term']), ('Term', ['Term', 'MUL', 'Factor', '|', 'Term', 'DIV', 'Factor', '|', 'Factor']), ('Factor', ['ID', '|', 'NUM', '|', 'LPAREN', 'Expr', 'RPAREN']), ('BooleanExpr', ['BooleanExpr', 'OR', 'BooleanTerm', '|', 'BooleanTerm']), ('BooleanTerm', ['BooleanTerm', 'AND', 'BooleanNot', '|', 'BooleanNot']), ('BooleanNot', ['NOT', 'BooleanNot', '|', 'RelExpr']), ('RelExpr', ['Expr', 'RELOP', 'Expr'])]
+productions = [('Program', ['StmtList']), ('StmtList', ['StmtList', 'Stmt', '|', 'Stmt']), ('Stmt', ['AssignStmt', '|', 'IfStmt', '|', 'WhileStmt', '｜', 'Block']), ('AssignStmt', ['ID', 'ASSIGN', 'Expr', 'SEMI']), ('IfStmt', ['IF', 'LPAREN', 'BooleanExpr', 'RPAREN', 'Stmt', '|', 'IF', 'LPAREN', 'BooleanExpr', 'RPAREN', 'Stmt', 'ELSE', 'Stmt']), ('WhileStmt', ['WHILE', 'LPAREN', 'BooleanExpr', 'RPAREN', 'Stmt']), ('Block', ['LBRACE', 'StmtList', 'RBRACE']), ('Expr', ['Expr', 'PLUS', 'Term', '|', 'Expr', 'MINUS', 'Term', '|', 'Term']), ('Term', ['Term', 'MUL', 'Factor', '|', 'Term', 'DIV', 'Factor', '|', 'Factor']), ('Factor', ['ID', '|', 'NUM', '|', 'LPAREN', 'Expr', 'RPAREN']), ('BooleanExpr', ['BooleanExpr', 'OR', 'BooleanTerm', '|', 'BooleanTerm']), ('BooleanTerm', ['BooleanTerm', 'AND', 'BooleanNot', '|', 'BooleanNot']), ('BooleanNot', ['NOT', 'BooleanNot', '|', 'RelExpr']), ('RelExpr', ['Expr', 'RELOP', 'Expr'])]
 start_symbol = "Program"
 
 from lexer import tokenize
@@ -55,7 +55,7 @@ class RecursiveParser:
 
     def parse_StmtList(self):
         node = Node("StmtList")
-        while not self.at_end() and self.lookahead()[0] in ('ID', 'IF', 'WHILE'):
+        while not self.at_end() and self.lookahead()[0] in ('ID', 'IF', 'WHILE', 'LBRACE'):
             s = self.parse_Stmt()
             node.children.append(s)
         return node
@@ -68,8 +68,20 @@ class RecursiveParser:
             return self.parse_IfStmt()
         elif la == 'WHILE':
             return self.parse_WhileStmt()
+        elif la == 'LBRACE':
+            return self.parse_Block()
         else:
             raise ParserError("Invalid Stmt")
+
+    def parse_Block(self):
+        self.consume('LBRACE')  
+        stmt_list_node = Node("StmtList")
+        block_node = Node("Block")
+        stmt_list_node = self.parse_StmtList()
+        self.consume('RBRACE')  
+        block_node.children.append(stmt_list_node)
+        return block_node
+
 
     def parse_AssignStmt(self):
         id_tok = self.consume('ID')
