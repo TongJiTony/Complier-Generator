@@ -1,0 +1,27 @@
+Three Address Code:
+x = 10
+L1:
+t1 = x < 15
+if t1 goto L2
+goto L3
+L2:
+t2 = x + 1
+x = t2
+goto L1
+L3:
+y = 20
+t3 = x < y
+if t3 goto L4
+goto L5
+L4:
+t4 = x + 1
+x = t4
+goto L6
+L5:
+t5 = y + 1
+y = t5
+L6:
+t6 = x + y
+z = t6
+t7 = x + 1
+x = t7

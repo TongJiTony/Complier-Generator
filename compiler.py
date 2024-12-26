@@ -137,6 +137,12 @@ def main():
         ast = parse(tokens)
         code = []
         generate_3ac(ast, code)
+        # 将三地址代码保存到本地文件
+        output_file = 'generated_Code.txt'
+        with open(output_file, 'w', encoding='utf-8') as out:
+            out.write("Three Address Code:\n")
+            for c in code:
+                out.write(f"{c}\n")
         print("Three Address Code:")
         for c in code:
             print(c)
