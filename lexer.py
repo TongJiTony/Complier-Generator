@@ -15,8 +15,6 @@ token_specs = [
     ("DIV", r"/"),
     ("LPAREN", r"\("),
     ("RPAREN", r"\)"),
-    ("LBRACE", r"\{"),
-    ("RBRACE", r"\}"),
     ("SEMI", r";"),
     ("AND", r"&&"),
     ("OR", r"\|\|"),
