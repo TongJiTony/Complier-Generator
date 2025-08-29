@@ -1,0 +1,31 @@
+Program -> StmtList
+
+StmtList -> Stmt StmtList | Stmt
+
+Stmt -> AssignStmt | IfStmt | WhileStmt | FunctionDefStmt | ExprStmt
+
+AssignStmt -> ID ASSIGN Expr
+
+IfStmt -> IF BooleanExpr Stmt | IF BooleanExpr Stmt ELSE Stmt
+
+WhileStmt -> WHILE BooleanExpr Stmt
+
+FunctionDefStmt -> DEF ID LPAREN ParamList RPAREN StmtList END
+
+ParamList -> ID (COMMA ID)* | ε
+
+ExprStmt -> Expr
+
+Expr -> Term ((PLUS | MINUS) Term)*
+
+Term -> Factor ((MUL | DIV) Factor)*
+
+Factor -> ID | NUM | STRING | LPAREN Expr RPAREN
+
+BooleanExpr -> BooleanExpr OR BooleanTerm | BooleanTerm
+
+BooleanTerm -> BooleanTerm AND BooleanNot | BooleanNot
+
+BooleanNot -> NOT BooleanNot | RelExpr
+
+RelExpr -> Expr RELOP Expr

@@ -1,5 +1,6 @@
 import sys
 
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python generate_parser.py grammar_spec.txt")
@@ -8,12 +9,12 @@ def main():
 
     rules = []
     start_symbol = None
-    with open(grammar_file, 'r', encoding='utf-8') as f:
+    with open(grammar_file, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
-            left, right = line.split('->', 1)
+            left, right = line.split("->", 1)
             left = left.strip()
             right = right.strip()
             if start_symbol is None:
@@ -25,8 +26,9 @@ def main():
     action_table = {}
     goto_table = {}
 
-    with open('parser.py', 'w', encoding='utf-8') as out:
-        out.write(f'''# Auto-generated parser by generate_parser.py
+    with open("parser.py", "w", encoding="utf-8") as out:
+        out.write(
+            f"""# Auto-generated parser by generate_parser.py
 productions = {productions!r}
 start_symbol = "{start_symbol}"
 
@@ -91,7 +93,10 @@ class RecursiveParser:
     def parse_Stmt(self):
         la = self.lookahead()[0]
         if la == 'ID':
-            return self.parse_AssignStmt()
+            if self.lookahead(1)[0] == "LPAREN":
+                return self.parse_FuncCallStmt()
+            else:
+                return self.parse_AssignStmt()
         elif la == 'IF':
             return self.parse_IfStmt()
         elif la == 'WHILE':
@@ -100,6 +105,71 @@ class RecursiveParser:
             return self.parse_Block()
         else:
             raise ParserError("Invalid Stmt")
+
+    def parse_FunctionDefStmt(self):
+        self.consume("DEF")  # Consume 'DEF'
+        func_name = self.consume("ID")[1]  # Get the function name
+
+        # Parse parameter list
+        self.consume("LPAREN")
+        param_list = self.parse_ParamList()
+        self.consume("RPAREN")
+
+        # Parse the body of the function (statement list)
+        stmt_list = self.parse_StmtList()
+
+        # Consume the 'END' keyword
+        self.consume("END")
+
+        # Store the function definition in the symbol table
+        self.symbol_table[func_name] = {
+            "type": "function",
+            "params": param_list,
+            "body": stmt_list,
+        }
+
+        # Return a function definition node
+        return Node(
+            "FunctionDefStmt",
+            [param_list, stmt_list],
+            attributes={"name": func_name, "params": param_list},
+        )
+
+    def parse_ParamList(self):
+        params = []
+        while not self.at_end() and self.lookahead()[0] != "RPAREN":
+            param = self.consume("ID")[1]  # Parameter is an identifier
+            params.append(param)
+            if self.lookahead()[0] == "COMMA":
+                self.consume("COMMA")  # Consume the comma between parameters
+            else:
+                break
+        return params
+
+    def parse_FuncCallStmt(self):
+        id_tok = self.consume("ID")
+        func_name = id_tok[1]
+
+        # Ensure function is defined
+        if func_name not in self.symbol_table:
+            raise NameError(f"Function is not defined")
+
+        self.consume("LPAREN")
+        args = self.parse_Args()
+        self.consume("RPAREN")
+        self.consume("SEMI")
+
+        # Check the number of arguments
+        param_list = self.symbol_table[func_name]["params"]
+        if len(args) != len(param_list):
+            raise TypeError(
+                f"Function expects arguments"
+            )
+
+        # Create function call node
+        func_call_node = Node("FuncCallStmt", args, attributes={"name": func_name})
+        return func_call_node
+
 
     def parse_Block(self):
         self.consume('LBRACE')  
@@ -241,9 +311,11 @@ class RecursiveParser:
             raise TypeError("Comparison between different types")
 
         return Node("RelExpr", [left, right], attributes={{'op': op, 'type': 'bool'}})
-''')
+"""
+        )
 
     print("parser.py generated.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -1,27 +1,23 @@
 Three Address Code:
 x = 10
+y = 20
 L1:
-t1 = x < 15
+t1 = x < 100
 if t1 goto L2
 goto L3
 L2:
-t2 = x + 1
-x = t2
-goto L1
-L3:
-y = 20
-t3 = x < y
-if t3 goto L4
+t2 = x < y
+if t2 goto L4
 goto L5
 L4:
-t4 = x + 1
-x = t4
+t3 = x + 1
+x = t3
 goto L6
 L5:
-t5 = y + 1
-y = t5
+t4 = y + 1
+y = t4
 L6:
-t6 = x + y
-z = t6
-t7 = x + 1
-x = t7
+t5 = x + 1
+x = t5
+goto L1
+L3:
